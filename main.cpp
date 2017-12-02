@@ -3,15 +3,14 @@
 #include <chrono>
 #include <vector>
 
-#include <gmp.h>
 #include <fplll.h>
 #include <fmpq.h>
 #include <fmpz.h>
-#include <fmpz_mod_poly.h>
 #include <fmpz_poly.h>
 #include <omp.h>
 
-#include "DiscreteLog.h"
+#include "parameters.h"
+#include "discrete_log.h"
 
 void print_fmpz_t(const char* fmt, const fmpz_t t)
 {
@@ -27,28 +26,22 @@ void print_fmpz_t(const char* fmt, const fmpz_t t)
  * Attempt factoring N
  *
  * @param N modulo N = pq
+ * @param gen base generator
  * @param Mp optimized M'
+ * @param ord multiplicative order of 65537 in Z/M'
  * @param m optimized number of f_i(x) polynomials (Coppersmith)
  * @param t optimized number of f_i+m(x) polynomials (Coppersmith)
  */
-void factor(const fmpz_t N, const fmpz_t Mp, unsigned int m, unsigned int t)
+void factor(const fmpz_t N, const fmpz_t gen, const fmpz_t Mp, const fmpz_t ord, unsigned int m, unsigned int t)
 {
-    DiscreteLog dlog;
-    fmpz_t cp, ord, lowerBound, upperBound, cpPlusOrd, gen;
+    fmpz_t cp, lowerBound, upperBound, cpPlusOrd;
     fmpz_init(cp);
     fmpz_init(lowerBound);
     fmpz_init(upperBound);
     fmpz_init(cpPlusOrd);
 
-    // generator, always 65537 for roca
-    fmpz_init_set_ui(gen, 65537ul);
-
-    // multiplicative order of 65537 in Z/M'
-    // ord' = ord_M'(65537)
-    fmpz_init_set_ui(ord, 1201200ul);
-
     // c' = log(N, 65537) mod M'
-    dlog.dlog(cp, N, Mp);
+    discrete_log(cp, N, Mp, gen, ord);
 
     // Coppersmith parameters beta, X
     // beta: upper bounds
@@ -314,7 +307,7 @@ void factor(const fmpz_t N, const fmpz_t Mp, unsigned int m, unsigned int t)
                 itr = 0;
             }
 
-            //printf("[thread %d] time taken: %lli\n", this_thread, std::chrono::high_resolution_clock::now() - start);
+            //printf("[thread %d] time taken: %lli\n", this_thread, std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start));
         }
 
         #pragma omp critical
@@ -343,7 +336,6 @@ void factor(const fmpz_t N, const fmpz_t Mp, unsigned int m, unsigned int t)
 
     fmpz_clear(Mpinv);
     fmpz_clear(cp);
-    fmpz_clear(ord);
     fmpz_clear(lowerBound);
     fmpz_clear(upperBound);
     fmpz_clear(cpPlusOrd);
@@ -351,25 +343,27 @@ void factor(const fmpz_t N, const fmpz_t Mp, unsigned int m, unsigned int t)
 
 int main()
 {
-    int m, t;
-    fmpz_t N, Mp;
+    unsigned int m, t;
+    fmpz_t N, Mp, generator, ord;
     fmpz_init(N);
     fmpz_init(Mp);
+    fmpz_init(ord);
 
-    // 512-bit key parameters
-    m = 5;
-    t = 6;
+    // base prime generator is 65537
+    fmpz_init_set_ui(generator, 65537ul);
 
-    // Optimized M' value
-    fmpz_set_str(Mp, "2373273553037774377596381010280540868262890", 10);
-
-    // Input modulo N = pq
+    // input modulo N = pq
     fmpz_set_str(N, "944e13208a280c37efc31c3114485e590192adbb8e11c87cad60cdef0037ce99278330d3f471a2538fa667802ed2a3c44a8b7dea826e888d0aa341fd664f7fa7", 16);
 
-    factor(N, Mp, m, t);
+    // find optimal parameters (M', ord', m, t) for the given N
+    parameters(Mp, ord, &m, &t, N);
+
+    factor(N, generator, Mp, ord, m, t);
 
     fmpz_clear(N);
     fmpz_clear(Mp);
+    fmpz_clear(ord);
+    fmpz_clear(generator);
 
     return 0;
 }
