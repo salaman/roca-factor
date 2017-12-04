@@ -110,7 +110,7 @@ void parameters(fmpz_t M, fmpz_t ord, unsigned int* m, unsigned int* t, const fm
                 algorithm2(Mnew, M, Mfactors, generator, ordDivCandidate);
 
                 // calculate reward
-                double reward = static_cast<double>((fmpz_flog_ui(ord, 2)) - fmpz_flog_ui(ordDivCandidate, 2)) / (fmpz_flog_ui(M, 2) - fmpz_flog_ui(Mnew, 2));
+                double reward = (fmpz_dlog(ord) - fmpz_dlog(ordDivCandidate)) / (fmpz_dlog(M) - fmpz_dlog(Mnew));
 
                 if (reward > bestReward) {
                     bestReward = reward;
@@ -129,7 +129,7 @@ void parameters(fmpz_t M, fmpz_t ord, unsigned int* m, unsigned int* t, const fm
             break;
         }
 
-        if (fmpz_flog_ui(Mcandidate, 2) < fmpz_flog_ui(N, 2) / 4) {
+        if (4.0 * fmpz_dlog(Mcandidate) < fmpz_dlog(N)) {
             // done
             //printf("done eliminating\n");
             break;
